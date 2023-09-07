@@ -34,6 +34,9 @@
  */
 
 #include "obstacle_detector/obstacle_tracker.h"
+#include <geometry_msgs/Point32.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
 
 using namespace obstacle_detector;
 using namespace arma;
@@ -44,6 +47,8 @@ ObstacleTracker::ObstacleTracker(ros::NodeHandle& nh, ros::NodeHandle& nh_local)
 
   timer_ = nh_.createTimer(ros::Duration(1.0), &ObstacleTracker::timerCallback, this, false, false);
   params_srv_ = nh_local_.advertiseService("params", &ObstacleTracker::updateParams, this);
+  tf_buffer= std::make_shared<tf2_ros::Buffer>();
+  tf_listener  = std::make_shared<tf2_ros::TransformListener>(*tf_buffer,nh_);
 
   initialize();
 }
@@ -92,7 +97,8 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
   if (p_active_ != prev_active) {
     if (p_active_) {
       obstacles_sub_ = nh_.subscribe("raw_obstacles", 10, &ObstacleTracker::obstaclesCallback, this);
-      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("tracked_obstacles", 10);
+      obstacles_pub_ = nh_.advertise<obstacle_detector::Obstacles>("obstacles", 10);
+      teb_obstacle_pub_ = nh_.advertise<costmap_converter::ObstacleArrayMsg>("/move_base_flex/TebLocalPlannerROS/obstacles",10);
       timer_.start();
     }
     else {
@@ -104,7 +110,7 @@ bool ObstacleTracker::updateParams(std_srvs::Empty::Request &req, std_srvs::Empt
 
       obstacles_sub_.shutdown();
       obstacles_pub_.shutdown();
-
+      teb_obstacle_pub_.shutdown();
       tracked_obstacles_.clear();
       untracked_obstacles_.clear();
 
@@ -211,6 +217,7 @@ void ObstacleTracker::obstaclesCallback(const obstacle_detector::Obstacles::Cons
       }
       else if (row_min_indices[n] >= T) {
         TrackedObstacle to(untracked_obstacles_[row_min_indices[n] - T]);
+        to.id = track_counter++;
         to.correctState(new_obstacles->circles[n]);
         for (int i = 0; i < static_cast<int>(p_loop_rate_ / p_sensor_rate_); ++i)
           to.updateState();
@@ -433,6 +440,7 @@ void ObstacleTracker::fuseObstacles(const vector<int>& fusion_indices, const vec
   c.radius /= sum_var_r;
 
   TrackedObstacle to(c);
+  to.id = track_counter++;
   to.correctState(new_obstacles->circles[col_min_indices[fusion_indices.front()]]);
   for (int i = 0; i < static_cast<int>(p_loop_rate_ / p_sensor_rate_); ++i)
     to.updateState();
@@ -445,6 +453,7 @@ void ObstacleTracker::fissureObstacle(const vector<int>& fission_indices, const 
   // For each new obstacle taking part in fission create a tracked obstacle from the original old one and update it with the new one
   for (int idx : fission_indices) {
     TrackedObstacle to = tracked_obstacles_[row_min_indices[idx]];
+    to.id = track_counter++;
     to.correctState(new_obstacles->circles[idx]);
     for (int i = 0; i < static_cast<int>(p_loop_rate_ / p_sensor_rate_); ++i)
       to.updateState();
@@ -466,17 +475,51 @@ void ObstacleTracker::publishObstacles() {
   obstacle_detector::ObstaclesPtr obstacles_msg(new obstacle_detector::Obstacles);
 
   obstacles_.circles.clear();
-
+  costmap_converter::ObstacleArrayMsg dynamic_obstacle_msg;
   for (auto& tracked_obstacle : tracked_obstacles_) {
+  if(tracked_obstacle.isDynamic && tracked_obstacle.track_counter++ > 10)
+  {
     CircleObstacle ob = tracked_obstacle.getObstacle();
+    // geometry_msgs::PointStamped in_point,out_point;
+    // in_point.header.frame_id = p_frame_id_;
+    // in_point.header.stamp = ros::Time::now();
+    // in_point.point.x = ob.center.x;
+    // in_point.point.y = ob.center.y;
+    // ROS_ERROR("--------doing transform now---------");
+    // tf_buffer->transform(in_point,out_point,"map",ros::Duration(0.1));
+    // ROS_ERROR("Transform done input_point: %f %f, output_point: %f %f",in_point.point.x,in_point.point.y,out_point.point.x,out_point.point.y);
+    // ob.center.x = out_point.point.x;
+    // ob.center.y = out_point.point.y;
     ob.true_radius = ob.radius - radius_margin_;
     obstacles_.circles.push_back(ob);
+  
+    
+      
+      costmap_converter::ObstacleMsg obs;
+      geometry_msgs::Point32 point;
+      point.x = ob.center.x;
+      point.y = ob.center.y;
+
+      obs.polygon.points.push_back(point);
+
+      obs.radius = ob.true_radius;
+      obs.velocities.twist.linear.x = ob.velocity.x;
+      obs.velocities.twist.linear.y = ob.velocity.y;
+      obs.id = tracked_obstacle.id;
+      dynamic_obstacle_msg.obstacles.push_back(obs);
+    }
+    
   }
 
   *obstacles_msg = obstacles_;
+
+  obstacles_msg->header.stamp = ros::Time::now();
+  dynamic_obstacle_msg.header.stamp = ros::Time::now();
+  dynamic_obstacle_msg.header.frame_id = "map";
   obstacles_msg->header.stamp = ros::Time::now();
 
   obstacles_pub_.publish(obstacles_msg);
+  teb_obstacle_pub_.publish(dynamic_obstacle_msg);
 }
 
 // Ugly initialization of static members of tracked obstacles...

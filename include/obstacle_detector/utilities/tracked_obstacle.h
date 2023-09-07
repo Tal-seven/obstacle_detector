@@ -99,6 +99,11 @@ public:
     obstacle_.velocity.x = kf_x_.q_est(1);
     obstacle_.velocity.y = kf_y_.q_est(1);
 
+    if(std::abs(obstacle_.velocity.x) > 0.2 || std::abs(obstacle_.velocity.y) > 0.2)
+    {
+      isDynamic = true;
+    }
+
     obstacle_.radius = kf_r_.q_est(0);
 
     fade_counter_--;
@@ -124,6 +129,9 @@ public:
   const KalmanFilter& getKFy() const { return kf_y_; }
   const KalmanFilter& getKFr() const { return kf_r_; }
 
+  int id;
+  bool isDynamic = false;
+  int track_counter=0;
 private:
   void initKF() {
     kf_x_.A(0, 1) = s_sampling_time_;
@@ -168,7 +176,6 @@ private:
   KalmanFilter kf_r_;
 
   int fade_counter_;
-
   // Common variables
   static int s_fade_counter_size_;
   static double s_sampling_time_;

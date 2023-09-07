@@ -3,7 +3,7 @@ project(obstacle_detector)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -fpermissive ${CMAKE_CXX_FLAGS} -Wfatal-errors\ ")
 
-find_package(catkin REQUIRED COMPONENTS roscpp roslaunch nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_generation)
+find_package(catkin REQUIRED COMPONENTS roscpp roslaunch nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_generation tf2_ros tf2_geometry_msgs)
 find_package(Armadillo REQUIRED)
 find_package(Boost 1.54.0 REQUIRED system)
 
@@ -13,7 +13,7 @@ generate_messages(DEPENDENCIES std_msgs geometry_msgs)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES scans_merger obstacle_extractor obstacle_tracker obstacle_publisher ${PROJECT_NAME}_nodelets ${PROJECT_NAME}_gui
-  CATKIN_DEPENDS roscpp nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_runtime
+  CATKIN_DEPENDS roscpp nodelet rviz std_msgs std_srvs geometry_msgs sensor_msgs tf laser_geometry message_runtime costmap_converter tf2_ros tf2_geometry_msgs
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${ARMADILLO_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
@@ -73,7 +73,7 @@ if(rviz_QT_VERSION VERSION_LESS "5")
   include(${QT_USE_FILE})
 else()
   message(STATUS "Using Qt5 based on the rviz_QT_VERSION: ${rviz_QT_VERSION}")
-  find_package(Qt5 ${rviz_QT_VERSION} EXACT REQUIRED Core Widgets)
+  find_package(Qt5 ${rviz_QT_VERSION}  REQUIRED Core Widgets)
   set(QT_LIBRARIES Qt5::Widgets)
 endif()
 

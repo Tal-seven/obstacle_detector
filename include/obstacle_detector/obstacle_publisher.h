@@ -39,6 +39,7 @@
 #include <std_srvs/Empty.h>
 #include <obstacle_detector/Obstacles.h>
 
+
 namespace obstacle_detector
 {
 

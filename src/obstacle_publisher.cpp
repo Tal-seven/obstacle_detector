@@ -93,7 +93,7 @@ bool ObstaclePublisher::updateParams(std_srvs::Empty::Request& req, std_srvs::Em
 
   if (p_active_ != prev_active) {
     if (p_active_) {
-      obstacle_pub_ = nh_.advertise<obstacle_detector::Obstacles>("obstacles", 10);
+      obstacle_pub_ = nh_.advertise<obstacle_detector::Obstacles>("circle_obstacles", 10);
       timer_.start();
     }
     else {
@@ -221,7 +221,6 @@ void ObstaclePublisher::fissionExample(double t) {
 void ObstaclePublisher::publishObstacles() {
   obstacle_detector::ObstaclesPtr obstacles_msg(new obstacle_detector::Obstacles);
   *obstacles_msg = obstacles_;
-
   obstacles_msg->header.stamp = ros::Time::now();
   obstacle_pub_.publish(obstacles_msg);
 }

@@ -130,11 +130,14 @@ bool ObstacleExtractor::updateParams(std_srvs::Empty::Request &req, std_srvs::Em
 }
 
 void ObstacleExtractor::scanCallback(const sensor_msgs::LaserScan::ConstPtr scan_msg) {
+  
+  ROS_ERROR("scan received");
   base_frame_id_ = scan_msg->header.frame_id;
   stamp_ = scan_msg->header.stamp;
 
   double phi = scan_msg->angle_min;
 
+  ROS_ERROR("Scan min angle %f and ranges size is %d",phi,scan_msg->ranges.size());
   for (const float r : scan_msg->ranges) {
     if (r >= scan_msg->range_min && r <= scan_msg->range_max)
       input_points_.push_back(Point::fromPoolarCoords(r, phi));
@@ -267,6 +270,8 @@ void ObstacleExtractor::detectSegments(const PointSet& point_set) {
 
     segments_.push_back(segment);
   }
+
+  ROS_ERROR("Detected %d segments from current point set",segments_.size());
 }
 
 void ObstacleExtractor::mergeSegments() {
@@ -347,6 +352,10 @@ void ObstacleExtractor::detectCircles() {
         segment = segments_.erase(segment);
         --segment;
       }
+    }
+    else
+    {
+      ROS_ERROR("Circle with radius %f greater than threshold %f",circle.radius,p_max_circle_radius_);
     }
   }
 }
@@ -444,8 +453,8 @@ void ObstacleExtractor::publishObstacles() {
   }
 
   for (const Circle& c : circles_) {
-    if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
-        c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
+    // if (c.center.x > p_min_x_limit_ && c.center.x < p_max_x_limit_ &&
+    //     c.center.y > p_min_y_limit_ && c.center.y < p_max_y_limit_) {
         CircleObstacle circle;
 
         circle.center.x = c.center.x;
@@ -456,7 +465,7 @@ void ObstacleExtractor::publishObstacles() {
         circle.true_radius = c.radius - p_radius_enlargement_;
 
         obstacles_msg->circles.push_back(circle);
-    }
+    // }
   }
 
   obstacles_pub_.publish(obstacles_msg);

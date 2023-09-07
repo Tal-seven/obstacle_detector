@@ -45,6 +45,10 @@
 #include "obstacle_detector/utilities/tracked_obstacle.h"
 #include "obstacle_detector/utilities/math_utilities.h"
 
+#include <costmap_converter/ObstacleArrayMsg.h>
+#include <costmap_converter/ObstacleMsg.h>
+#include <tf2_ros/transform_listener.h>
+
 namespace obstacle_detector
 {
 
@@ -83,6 +87,7 @@ private:
 
   ros::Subscriber obstacles_sub_;
   ros::Publisher obstacles_pub_;
+  ros::Publisher teb_obstacle_pub_;
   ros::ServiceServer params_srv_;
   ros::Timer timer_;
 
@@ -91,6 +96,8 @@ private:
 
   std::vector<TrackedObstacle> tracked_obstacles_;
   std::vector<CircleObstacle> untracked_obstacles_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener;
 
   // Parameters
   bool p_active_;
@@ -105,7 +112,7 @@ private:
   double p_process_variance_;
   double p_process_rate_variance_;
   double p_measurement_variance_;
-
+  int track_counter=0;
   std::string p_frame_id_;
 };
 
